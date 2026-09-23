@@ -5,7 +5,7 @@ import java.awt.event.ActionListener;
 
 public class Main {
     public static void main(String[] args) {
-        // පෙනුම නවීන කිරීම (Warning එක මගහරවා ඇත)
+        // පෙනුම නවීන කිරීම
         try {
             UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
         } catch (Exception e) {
@@ -37,17 +37,36 @@ public class Main {
         // Add බොත්තම
         JButton addButton = new JButton("Add Task");
         addButton.setBackground(new Color(0, 120, 215));
-        addButton.setForeground(Color.BLACK); // අකුරු පැහැදිලිව පෙනීමට කළු පැහැ කිරීම
+        addButton.setForeground(Color.BLACK);
         addButton.setFont(new Font("Segoe UI", Font.BOLD, 14));
 
-        // Add බොත්තමට ක්‍රියාකාරීත්වයක් ලබා දීම (Action Listener)
-        addButton.addActionListener(new ActionListener() {
+        // අලුතින් එකතු කළ Delete බොත්තම
+        JButton deleteButton = new JButton("Delete Selected Task");
+        deleteButton.setBackground(new Color(220, 53, 69)); // රතු පැහැය
+        deleteButton.setForeground(Color.WHITE); // අකුරු සුදු පැහැ කිරීම
+        deleteButton.setFont(new Font("Segoe UI", Font.BOLD, 14));
+
+        // Add බොත්තමට ක්‍රියාකාරීත්වයක් ලබා දීම
+        addButton.addActionListener(e -> {
+            String task = taskInput.getText();
+            if (!task.trim().isEmpty()) {
+                listModel.addElement(task);
+                taskInput.setText("");
+            }
+        });
+
+        // Delete බොත්තමට ක්‍රියාකාරීත්වයක් ලබා දීම
+        deleteButton.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
-                String task = taskInput.getText();
-                if (!task.trim().isEmpty()) {
-                    listModel.addElement(task); // ලැයිස්තුවට අලුත් දත්තය එකතු කිරීම
-                    taskInput.setText("");      // දත්තය ඇතුළත් කළ පසු Text box එක හිස් කිරීම
+                // ලැයිස්තුවෙන් තෝරාගෙන ඇති අයිතමයේ ස්ථානය (index) ලබා ගැනීම
+                int selectedIndex = todoList.getSelectedIndex();
+
+                if (selectedIndex != -1) {
+                    listModel.remove(selectedIndex); // දත්තය ලැයිස්තුවෙන් ඉවත් කිරීම
+                } else {
+                    // කිසිවක් තෝරා නොමැති නම් පණිවිඩයක් පෙන්වීම
+                    JOptionPane.showMessageDialog(frame, "කරුණාකර මකා දැමීමට අවශ්‍ය කාර්යය ලැයිස්තුවෙන් තෝරන්න.", "දෝෂයකි", JOptionPane.WARNING_MESSAGE);
                 }
             }
         });
@@ -55,6 +74,8 @@ public class Main {
         inputPanel.add(taskInput, BorderLayout.CENTER);
         inputPanel.add(addButton, BorderLayout.EAST);
 
+        // කොටස් සියල්ල ප්‍රධාන කවුළුවට එකතු කිරීම
+        frame.add(deleteButton, BorderLayout.NORTH); // Delete බොත්තම ඉහළින් එකතු කිරීම
         frame.add(scrollPane, BorderLayout.CENTER);
         frame.add(inputPanel, BorderLayout.SOUTH);
 
