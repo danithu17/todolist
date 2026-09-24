@@ -1,5 +1,7 @@
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
+import javax.swing.event.DocumentEvent;
+import javax.swing.event.DocumentListener;
 import java.awt.*;
 import java.awt.event.*;
 import java.io.*;
@@ -60,7 +62,6 @@ public class Main {
     private static JPanel taskPanelContainer;
     private static JFrame frame;
 
-    // UI Elements ගෝලීයව තබා ගැනීම (Update කිරීම සඳහා)
     private static JLabel mainTitleLabel;
     private static DefaultListModel<String> sidebarListModel;
     private static JList<String> sideList;
@@ -69,8 +70,8 @@ public class Main {
     private static WidgetPanel urgentWidget;
     private static WidgetPanel activeWidget;
 
-    // Filter කිරීම සඳහා දැනට තෝරා ඇති කාණ්ඩය
     private static String currentFilter = "All Tasks";
+    private static String searchQuery = ""; // සෙවුම් පදය රඳවා ගැනීමට
 
     private static final Color MAC_BG = new Color(255, 255, 255);
     private static final Color SIDEBAR_BG = new Color(242, 242, 247);
@@ -88,7 +89,7 @@ public class Main {
         }
 
         frame = new JFrame("Apple Reminders Clone");
-        frame.setSize(850, 600);
+        frame.setSize(850, 650);
         frame.setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
         frame.setLayout(new BorderLayout());
 
@@ -104,7 +105,6 @@ public class Main {
         widgetsGrid.setBackground(SIDEBAR_BG);
         widgetsGrid.setBorder(new EmptyBorder(20, 15, 20, 15));
 
-        // Widgets මුලින් සාදා ගැනීම (දත්ත පසුව update වේ)
         allWidget = new WidgetPanel("All", "0", WIDGET_GRAY);
         activeWidget = new WidgetPanel("Active", "0", WIDGET_BLUE);
         urgentWidget = new WidgetPanel("Urgent", "0", WIDGET_RED);
@@ -122,7 +122,6 @@ public class Main {
         sideList.setForeground(Color.DARK_GRAY);
         sideList.setBorder(new EmptyBorder(0, 10, 0, 0));
 
-        // Sidebar එකේ අයිතමයක් ක්ලික් කළ විට ෆිල්ටර් වීම
         sideList.addListSelectionListener(e -> {
             if (!e.getValueIsAdjusting() && sideList.getSelectedValue() != null) {
                 currentFilter = sideList.getSelectedValue().replace("🏷️ ", "").replace("📋 ", "");
@@ -142,14 +141,66 @@ public class Main {
         JPanel mainPanel = new JPanel(new BorderLayout());
         mainPanel.setBackground(MAC_BG);
 
-        JPanel headerPanel = new JPanel(new BorderLayout());
+        // Header Panel (Title සහ Search Bar සහිත)
+        JPanel headerPanel = new JPanel(new BorderLayout(15, 10));
         headerPanel.setBackground(MAC_BG);
         headerPanel.setBorder(new EmptyBorder(20, 30, 10, 30));
 
         mainTitleLabel = new JLabel(currentFilter);
         mainTitleLabel.setFont(new Font("SansSerif", Font.BOLD, 32));
         mainTitleLabel.setForeground(WIDGET_BLUE);
+
+        // Search Bar එක සකස් කිරීම
+        JTextField searchField = new JTextField(15);
+        searchField.setFont(new Font("SansSerif", Font.PLAIN, 14));
+        searchField.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(new Color(220, 220, 220), 1, true),
+                new EmptyBorder(6, 10, 6, 10)));
+        searchField.setToolTipText("Search tasks or tags...");
+
+        // Placeholder පෙන්වීම සඳහා
+        searchField.setText("Search...");
+        searchField.setForeground(Color.GRAY);
+        searchField.addFocusListener(new FocusAdapter() {
+            @Override
+            public void focusGained(FocusEvent e) {
+                if (searchField.getText().equals("Search...")) {
+                    searchField.setText("");
+                    searchField.setForeground(Color.BLACK);
+                }
+            }
+            @Override
+            public void focusLost(FocusEvent e) {
+                if (searchField.getText().trim().isEmpty()) {
+                    searchField.setText("Search...");
+                    searchField.setForeground(Color.GRAY);
+                }
+            }
+        });
+
+        // Search Bar එකේ අකුරු ටයිප් කරන විට Real-time update වීම
+        searchField.getDocument().addDocumentListener(new DocumentListener() {
+            public void insertUpdate(DocumentEvent e) { applySearch(); }
+            public void removeUpdate(DocumentEvent e) { applySearch(); }
+            public void changedUpdate(DocumentEvent e) { applySearch(); }
+
+            private void applySearch() {
+                String text = searchField.getText();
+                if (text.equals("Search...")) {
+                    searchQuery = "";
+                } else {
+                    searchQuery = text.trim().toLowerCase();
+                }
+                renderTasks();
+            }
+        });
+
+        JPanel searchWrapper = new JPanel(new FlowLayout(FlowLayout.RIGHT, 0, 0));
+        searchWrapper.setBackground(MAC_BG);
+        searchWrapper.add(searchField);
+
         headerPanel.add(mainTitleLabel, BorderLayout.WEST);
+        headerPanel.add(searchWrapper, BorderLayout.EAST);
 
         taskPanelContainer = new JPanel();
         taskPanelContainer.setLayout(new BoxLayout(taskPanelContainer, BoxLayout.Y_AXIS));
@@ -160,6 +211,7 @@ public class Main {
         scrollPane.setBorder(null);
         scrollPane.getVerticalScrollBar().setUnitIncrement(16);
 
+        // Input කොටස
         JPanel inputPanel = new JPanel(new BorderLayout(10, 10));
         inputPanel.setBackground(MAC_BG);
         inputPanel.setBorder(new EmptyBorder(15, 30, 20, 30));
@@ -169,7 +221,7 @@ public class Main {
         taskInput.setBorder(BorderFactory.createCompoundBorder(
                 BorderFactory.createLineBorder(new Color(220, 220, 220), 1, true),
                 new EmptyBorder(10, 10, 10, 10)));
-        taskInput.setToolTipText("උදා: Finish homework #studies");
+        taskInput.setToolTipText("e.g. Finish homework #studies");
 
         JButton addButton = new JButton("Add Task");
         addButton.setFont(new Font("SansSerif", Font.BOLD, 15));
@@ -186,7 +238,7 @@ public class Main {
             if (!text.trim().isEmpty()) {
                 tasksList.add(new Task(text, false));
                 taskInput.setText("");
-                updateDataAndUI(); // දත්ත සහ UI යාවත්කාලීන කිරීම
+                updateDataAndUI();
             }
         });
 
@@ -209,7 +261,6 @@ public class Main {
         frame.setVisible(true);
     }
 
-    // දත්ත, Widgets සහ Sidebar එකවර යාවත්කාලීන කරන ක්‍රියාවලිය
     private static void updateDataAndUI() {
         int total = tasksList.size();
         int completed = 0;
@@ -220,20 +271,17 @@ public class Main {
             if (task.completed) completed++;
             if (task.title.toLowerCase().contains("#urgent")) urgent++;
 
-            // Regex භාවිතයෙන් Tags සොයා ගැනීම
             Matcher m = Pattern.compile("(#\\w+)").matcher(task.title);
             while (m.find()) {
                 uniqueTags.add(m.group(1));
             }
         }
 
-        // Widgets Update කිරීම
         allWidget.setCount(String.valueOf(total));
         completedWidget.setCount(String.valueOf(completed));
         urgentWidget.setCount(String.valueOf(urgent));
         activeWidget.setCount(String.valueOf(total - completed));
 
-        // Sidebar Update කිරීම
         String previousSelection = sideList.getSelectedValue();
         sidebarListModel.clear();
         sidebarListModel.addElement("📋 All Tasks");
@@ -268,17 +316,20 @@ public class Main {
             Task task = tasksList.get(i);
             final int index = i;
 
-            // ෆිල්ටර් කිරීමේ තර්කය (Filter Logic)
-            boolean showTask = false;
+            // 1. Sidebar Category Filter එක
+            boolean matchesCategory = false;
             if (currentFilter.equals("All Tasks")) {
-                showTask = true;
+                matchesCategory = true;
             } else if (currentFilter.equals("Completed")) {
-                showTask = task.completed;
+                matchesCategory = task.completed;
             } else if (currentFilter.startsWith("#")) {
-                showTask = task.title.contains(currentFilter);
+                matchesCategory = task.title.contains(currentFilter);
             }
 
-            if (!showTask) continue; // ෆිල්ටර් එකට අදාළ නැත්නම් ඊළඟ එකට යන්න
+            // 2. Search Field එකේ Filter එක
+            boolean matchesSearch = searchQuery.isEmpty() || task.title.toLowerCase().contains(searchQuery);
+
+            if (!matchesCategory || !matchesSearch) continue;
 
             JPanel rowPanel = new JPanel(new BorderLayout(15, 10));
             rowPanel.setBackground(MAC_BG);
