@@ -61,6 +61,45 @@ class WidgetPanel extends JPanel {
     }
 }
 
+// iOS Style Custom List Cell Renderer for Sidebar
+class IOSListCellRenderer extends JPanel implements ListCellRenderer<String> {
+    private final JLabel label = new JLabel();
+    private boolean isSelected;
+    private boolean isCellHasFocus;
+
+    public IOSListCellRenderer() {
+        setLayout(new BorderLayout());
+        setOpaque(false);
+        setBorder(new EmptyBorder(6, 12, 6, 12));
+        label.setFont(new Font("SansSerif", Font.PLAIN, 14));
+        add(label, BorderLayout.CENTER);
+    }
+
+    @Override
+    public Component getListCellRendererComponent(JList<? extends String> list, String value, int index,
+                                                  boolean isSelected, boolean cellHasFocus) {
+        this.isSelected = isSelected;
+        this.isCellHasFocus = cellHasFocus;
+        label.setText(value);
+        label.setForeground(isSelected ? new Color(0, 113, 227) : new Color(50, 50, 50));
+        return this;
+    }
+
+    @Override
+    protected void paintComponent(Graphics g) {
+        Graphics2D g2 = (Graphics2D) g.create();
+        g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+
+        if (isSelected) {
+            g2.setColor(new Color(220, 228, 245)); // iOS selection blue tint
+            g2.fillRoundRect(4, 2, getWidth() - 8, getHeight() - 4, 10, 10);
+        }
+
+        g2.dispose();
+        super.paintComponent(g);
+    }
+}
+
 public class Main {
     private static final String FILE_NAME = "tasks.txt";
     private static final ArrayList<Task> tasksList = new ArrayList<>();
@@ -167,16 +206,14 @@ public class Main {
         sidebarListModel = new DefaultListModel<>();
         sideList = new JList<>(sidebarListModel);
         sideList.setBackground(SIDEBAR_BG);
-        sideList.setFont(new Font("SansSerif", Font.PLAIN, 14));
-        sideList.setForeground(new Color(50, 50, 50));
-        sideList.setSelectionBackground(new Color(210, 220, 240));
-        sideList.setSelectionForeground(Color.BLACK);
-        sideList.setBorder(new EmptyBorder(5, 5, 5, 5));
-        sideList.setFixedCellHeight(32);
+        sideList.setCellRenderer(new IOSListCellRenderer()); // iOS Style Renderer applied here
+        sideList.setOpaque(false);
+        sideList.setBorder(new EmptyBorder(5, 8, 5, 8));
+        sideList.setFixedCellHeight(36);
 
         sideList.addListSelectionListener(e -> {
             if (!e.getValueIsAdjusting() && sideList.getSelectedValue() != null) {
-                currentFilter = sideList.getSelectedValue().replace("🏷️ ", "").replace("📋 ", "").trim();
+                currentFilter = sideList.getSelectedValue().replace("🏷️ ", "").replace("📁 ", "").trim();
                 mainTitleLabel.setText(currentFilter);
                 renderTasks();
             }
@@ -188,7 +225,8 @@ public class Main {
 
         JScrollPane listScroll = new JScrollPane(sideList);
         listScroll.setBorder(null);
-        listScroll.getViewport().setBackground(SIDEBAR_BG);
+        listScroll.setOpaque(false);
+        listScroll.getViewport().setOpaque(false);
         sidebarTop.add(listScroll, BorderLayout.CENTER);
 
         sidebar.add(sidebarTop, BorderLayout.CENTER);
@@ -388,8 +426,8 @@ public class Main {
 
         String previousSelection = sideList.getSelectedValue();
         sidebarListModel.clear();
-        sidebarListModel.addElement("📋 All Tasks");
-        sidebarListModel.addElement("📋 Completed");
+        sidebarListModel.addElement("📁 All Tasks");
+        sidebarListModel.addElement("📁 Completed");
 
         for (String tag : uniqueTags) {
             sidebarListModel.addElement("🏷️ " + tag);
@@ -516,7 +554,6 @@ public class Main {
                     title = parts[1];
                 }
 
-                tasksList.get(tasksList.size() - 1); // fix warning if any
                 tasksList.add(new Task(title, completed, priority));
             }
         } catch (Exception ignored) {}
