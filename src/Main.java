@@ -13,10 +13,12 @@ import java.util.regex.Pattern;
 class Task implements Serializable {
     String title;
     boolean completed;
+    String priority; // None, Low, Medium, High
 
-    public Task(String title, boolean completed) {
+    public Task(String title, boolean completed, String priority) {
         this.title = title;
         this.completed = completed;
+        this.priority = priority;
     }
 }
 
@@ -71,7 +73,7 @@ public class Main {
     private static WidgetPanel activeWidget;
 
     private static String currentFilter = "All Tasks";
-    private static String searchQuery = ""; // සෙවුම් පදය රඳවා ගැනීමට
+    private static String searchQuery = "";
 
     private static final Color MAC_BG = new Color(255, 255, 255);
     private static final Color SIDEBAR_BG = new Color(242, 242, 247);
@@ -89,13 +91,13 @@ public class Main {
         }
 
         frame = new JFrame("Apple Reminders Clone");
-        frame.setSize(850, 650);
+        frame.setSize(900, 650);
         frame.setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
         frame.setLayout(new BorderLayout());
 
         loadTasks();
 
-        // 1. Sidebar සෑදීම
+        // 1. Sidebar Panel
         JPanel sidebar = new JPanel(new BorderLayout());
         sidebar.setBackground(SIDEBAR_BG);
         sidebar.setPreferredSize(new Dimension(240, 0));
@@ -137,11 +139,11 @@ public class Main {
 
         sidebar.add(sidebarTop, BorderLayout.CENTER);
 
-        // 2. ප්‍රධාන කොටස (Main Panel)
+        // 2. Main Panel
         JPanel mainPanel = new JPanel(new BorderLayout());
         mainPanel.setBackground(MAC_BG);
 
-        // Header Panel (Title සහ Search Bar සහිත)
+        // Header Panel
         JPanel headerPanel = new JPanel(new BorderLayout(15, 10));
         headerPanel.setBackground(MAC_BG);
         headerPanel.setBorder(new EmptyBorder(20, 30, 10, 30));
@@ -150,17 +152,14 @@ public class Main {
         mainTitleLabel.setFont(new Font("SansSerif", Font.BOLD, 32));
         mainTitleLabel.setForeground(WIDGET_BLUE);
 
-        // Search Bar එක සකස් කිරීම
         JTextField searchField = new JTextField(15);
         searchField.setFont(new Font("SansSerif", Font.PLAIN, 14));
         searchField.setBorder(BorderFactory.createCompoundBorder(
                 BorderFactory.createLineBorder(new Color(220, 220, 220), 1, true),
                 new EmptyBorder(6, 10, 6, 10)));
-        searchField.setToolTipText("Search tasks or tags...");
-
-        // Placeholder පෙන්වීම සඳහා
         searchField.setText("Search...");
         searchField.setForeground(Color.GRAY);
+
         searchField.addFocusListener(new FocusAdapter() {
             @Override
             public void focusGained(FocusEvent e) {
@@ -178,7 +177,6 @@ public class Main {
             }
         });
 
-        // Search Bar එකේ අකුරු ටයිප් කරන විට Real-time update වීම
         searchField.getDocument().addDocumentListener(new DocumentListener() {
             public void insertUpdate(DocumentEvent e) { applySearch(); }
             public void removeUpdate(DocumentEvent e) { applySearch(); }
@@ -186,11 +184,7 @@ public class Main {
 
             private void applySearch() {
                 String text = searchField.getText();
-                if (text.equals("Search...")) {
-                    searchQuery = "";
-                } else {
-                    searchQuery = text.trim().toLowerCase();
-                }
+                searchQuery = text.equals("Search...") ? "" : text.trim().toLowerCase();
                 renderTasks();
             }
         });
@@ -211,7 +205,7 @@ public class Main {
         scrollPane.setBorder(null);
         scrollPane.getVerticalScrollBar().setUnitIncrement(16);
 
-        // Input කොටස
+        // Input Panel (Priority Dropdown සහිතව)
         JPanel inputPanel = new JPanel(new BorderLayout(10, 10));
         inputPanel.setBackground(MAC_BG);
         inputPanel.setBorder(new EmptyBorder(15, 30, 20, 30));
@@ -221,7 +215,13 @@ public class Main {
         taskInput.setBorder(BorderFactory.createCompoundBorder(
                 BorderFactory.createLineBorder(new Color(220, 220, 220), 1, true),
                 new EmptyBorder(10, 10, 10, 10)));
-        taskInput.setToolTipText("e.g. Finish homework #studies");
+        taskInput.setToolTipText("e.g. Finish physics homework #studies");
+
+        // Priority Selector
+        String[] priorities = {"None", "Low (!)", "Medium (!!)", "High (!!!)"};
+        JComboBox<String> priorityBox = new JComboBox<>(priorities);
+        priorityBox.setFont(new Font("SansSerif", Font.PLAIN, 14));
+        priorityBox.setBackground(Color.WHITE);
 
         JButton addButton = new JButton("Add Task");
         addButton.setFont(new Font("SansSerif", Font.BOLD, 15));
@@ -230,14 +230,26 @@ public class Main {
         addButton.setBorderPainted(false);
         addButton.setCursor(new Cursor(Cursor.HAND_CURSOR));
 
+        JPanel rightInputControls = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 0));
+        rightInputControls.setBackground(MAC_BG);
+        rightInputControls.add(priorityBox);
+        rightInputControls.add(addButton);
+
         inputPanel.add(taskInput, BorderLayout.CENTER);
-        inputPanel.add(addButton, BorderLayout.EAST);
+        inputPanel.add(rightInputControls, BorderLayout.EAST);
 
         addButton.addActionListener(e -> {
             String text = taskInput.getText();
             if (!text.trim().isEmpty()) {
-                tasksList.add(new Task(text, false));
+                String selectedPriority = (String) priorityBox.getSelectedItem();
+                String cleanPriority = "None";
+                if (selectedPriority.startsWith("High")) cleanPriority = "High";
+                else if (selectedPriority.startsWith("Medium")) cleanPriority = "Medium";
+                else if (selectedPriority.startsWith("Low")) cleanPriority = "Low";
+
+                tasksList.add(new Task(text, false, cleanPriority));
                 taskInput.setText("");
+                priorityBox.setSelectedIndex(0);
                 updateDataAndUI();
             }
         });
@@ -269,7 +281,7 @@ public class Main {
 
         for (Task task : tasksList) {
             if (task.completed) completed++;
-            if (task.title.toLowerCase().contains("#urgent")) urgent++;
+            if (task.title.toLowerCase().contains("#urgent") || "High".equalsIgnoreCase(task.priority)) urgent++;
 
             Matcher m = Pattern.compile("(#\\w+)").matcher(task.title);
             while (m.find()) {
@@ -300,13 +312,24 @@ public class Main {
         renderTasks();
     }
 
-    private static String formatTitleWithTags(String title, boolean completed) {
-        String escaped = title.replace("<", "&lt;").replace(">", "&gt;");
+    private static String formatTitle(Task task) {
+        String escaped = task.title.replace("<", "&lt;").replace(">", "&gt;");
         String formatted = escaped.replaceAll("(#\\w+)", "<font color='#007AFF'>$1</font>");
-        if (completed) {
-            return "<html><strike><font color='#8E8E93'>" + formatted + "</font></strike></html>";
+
+        // Priority indicator (Apple Style)
+        String priorityBadge = "";
+        if ("High".equalsIgnoreCase(task.priority)) {
+            priorityBadge = "<font color='#FF3B30'><b>!!! </b></font>";
+        } else if ("Medium".equalsIgnoreCase(task.priority)) {
+            priorityBadge = "<font color='#FF9500'><b>!! </b></font>";
+        } else if ("Low".equalsIgnoreCase(task.priority)) {
+            priorityBadge = "<font color='#007AFF'><b>! </b></font>";
         }
-        return "<html><font color='#000000'>" + formatted + "</font></html>";
+
+        if (task.completed) {
+            return "<html><strike><font color='#8E8E93'>" + priorityBadge + formatted + "</font></strike></html>";
+        }
+        return "<html>" + priorityBadge + "<font color='#000000'>" + formatted + "</font></html>";
     }
 
     private static void renderTasks() {
@@ -316,7 +339,6 @@ public class Main {
             Task task = tasksList.get(i);
             final int index = i;
 
-            // 1. Sidebar Category Filter එක
             boolean matchesCategory = false;
             if (currentFilter.equals("All Tasks")) {
                 matchesCategory = true;
@@ -326,7 +348,6 @@ public class Main {
                 matchesCategory = task.title.contains(currentFilter);
             }
 
-            // 2. Search Field එකේ Filter එක
             boolean matchesSearch = searchQuery.isEmpty() || task.title.toLowerCase().contains(searchQuery);
 
             if (!matchesCategory || !matchesSearch) continue;
@@ -346,7 +367,7 @@ public class Main {
             checkBtn.setFocusPainted(false);
             checkBtn.setCursor(new Cursor(Cursor.HAND_CURSOR));
 
-            JLabel titleLabel = new JLabel(formatTitleWithTags(task.title, task.completed));
+            JLabel titleLabel = new JLabel(formatTitle(task));
             titleLabel.setFont(new Font("SansSerif", Font.PLAIN, 16));
 
             checkBtn.addActionListener(e -> {
@@ -388,8 +409,18 @@ public class Main {
             String line;
             while ((line = reader.readLine()) != null) {
                 boolean completed = line.startsWith("[X] ");
-                String title = completed ? line.substring(4) : line;
-                tasksList.add(new Task(title, completed));
+                String raw = completed ? line.substring(4) : line;
+
+                // Storage format: Priority|Title (e.g., High|Complete assignment)
+                String priority = "None";
+                String title = raw;
+                if (raw.contains("|")) {
+                    String[] parts = raw.split("\\|", 2);
+                    priority = parts[0];
+                    title = parts[1];
+                }
+
+                tasksList.add(new Task(title, completed, priority));
             }
         } catch (Exception ignored) {}
     }
@@ -397,7 +428,8 @@ public class Main {
     private static void saveTasks() {
         try (BufferedWriter writer = new BufferedWriter(new FileWriter(FILE_NAME))) {
             for (Task task : tasksList) {
-                writer.write((task.completed ? "[X] " : "") + task.title);
+                String prefix = task.completed ? "[X] " : "";
+                writer.write(prefix + task.priority + "|" + task.title);
                 writer.newLine();
             }
         } catch (Exception ignored) {}
